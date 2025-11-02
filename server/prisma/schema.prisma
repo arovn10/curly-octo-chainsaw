@@ -4,8 +4,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // For migrate (direct DB):
-  url      = env("DIRECT_DATABASE_URL")
+  // Use DATABASE_URL at runtime (with Accelerate)
+  // Use DIRECT_DATABASE_URL for migrations if available, otherwise DATABASE_URL
+  url      = env("DATABASE_URL")
 }
 
 model User {
