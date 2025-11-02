@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { statsApi } from '../api/client';
+import { statsApi, mealsApi } from '../api/client';
 
 export default function StatsScreen({ navigation }: any) {
   const { user } = useAuth();
