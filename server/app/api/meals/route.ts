@@ -5,7 +5,7 @@ import { z } from "zod";
 export const dynamic = "force-dynamic";
 
 const MealCreate = z.object({
-  userId: z.string().min(1), // Allow any string for beta (not strict UUID)
+  userId: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
   tags: z.array(z.string()).default([]),
@@ -52,65 +52,26 @@ export async function GET(req: Request) {
       where.isPublic = true;
     }
     
-    // Try to query database
-    let meals;
-    try {
-      meals = await prisma.meal.findMany({
-        where,
-        take: 50,
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          userId: true,
-          title: true,
-          description: true,
-          tags: true,
-          difficulty: true,
-          prepMinutes: true,
-          cookMinutes: true,
-          totalMinutes: true,
-          servings: true,
-          isPublic: true,
-          sentiment: true,
-          costPerServingCents: true,
-          photos: true,
-          globalScore: true,
-          createdAt: true,
-          updatedAt: true,
-          user: {
-            select: { 
-              id: true, 
-              username: true, 
-              name: true, 
-              image: true 
-            }
-          },
-          // Note: _count requires the Like and Comment models to exist
-          // For now, return 0 if relations don't exist
-          _count: {
-            select: { 
-              likes: true, 
-              comments: true 
-            }
-          }
-        }
-      });
-    } catch (dbError: any) {
-      console.error("Database error:", dbError);
-      console.error("Error code:", dbError?.code);
-      console.error("Error meta:", dbError?.meta);
-      
-      // If table doesn't exist or connection fails, return empty array
-      if (dbError?.code === 'P2021' || dbError?.code === 'P1001' || dbError?.message?.includes('does not exist')) {
-        console.warn("Database table may not exist yet. Run migrations first.");
-        return NextResponse.json({ 
-          ok: true, 
-          data: [],
-          warning: "Database not initialized. Please run migrations."
-        });
+    // Simple query without relations to avoid errors
+    const meals = await prisma.meal.findMany({
+      where,
+      take: 50,
+      orderBy: { createdAt: "desc" },
+    });
+    
+    // Get user data separately
+    const userIds = [...new Set(meals.map(m => m.userId))];
+    const users = userIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { 
+        id: true, 
+        username: true, 
+        name: true, 
+        image: true 
       }
-      throw dbError;
-    }
+    }) : [];
+    
+    const userMap = new Map(users.map(u => [u.id, u]));
     
     // Format response safely
     const formattedMeals = meals.map((meal: any) => {
@@ -139,10 +100,34 @@ export async function GET(req: Request) {
       }
       
       return {
-        ...meal,
+        id: meal.id,
+        userId: meal.userId,
+        title: meal.title,
+        description: meal.description,
         tags,
+        difficulty: meal.difficulty,
+        prepMinutes: meal.prepMinutes,
+        cookMinutes: meal.cookMinutes,
+        totalMinutes: meal.totalMinutes,
+        servings: meal.servings,
+        isPublic: meal.isPublic,
+        sentiment: meal.sentiment,
+        costPerServingCents: meal.costPerServingCents,
         photos,
-        dateCooked: meal.createdAt?.toISOString() || meal.createdAt,
+        globalScore: meal.globalScore,
+        createdAt: meal.createdAt?.toISOString(),
+        updatedAt: meal.updatedAt?.toISOString(),
+        dateCooked: meal.createdAt?.toISOString(),
+        user: userMap.get(meal.userId) || { 
+          id: meal.userId, 
+          username: null, 
+          name: null, 
+          image: null 
+        },
+        _count: { 
+          likes: 0, 
+          comments: 0 
+        },
       };
     });
     
@@ -151,7 +136,6 @@ export async function GET(req: Request) {
     console.error("Error fetching meals:", error);
     console.error("Error message:", error?.message);
     console.error("Error code:", error?.code);
-    console.error("Full error:", JSON.stringify(error, null, 2));
     
     // Return empty array instead of error to prevent app crash
     return NextResponse.json({ 
@@ -200,7 +184,7 @@ export async function POST(req: Request) {
       
       dbUser = await prisma.user.create({
         data: {
-          ...(isUUID ? { id: m.userId } : {}), // Only set id if it looks like a UUID
+          ...(isUUID ? { id: m.userId } : {}),
           email: isEmail ? m.userId : undefined,
           username: username,
           name: username,
@@ -251,6 +235,11 @@ export async function POST(req: Request) {
             }
           : undefined,
       },
+    });
+
+    // Fetch created meal with user data
+    const createdMeal = await prisma.meal.findUnique({
+      where: { id: meal.id },
       select: {
         id: true,
         userId: true,
@@ -269,24 +258,23 @@ export async function POST(req: Request) {
         globalScore: true,
         createdAt: true,
         updatedAt: true,
-        user: {
-          select: { 
-            id: true, 
-            username: true, 
-            name: true, 
-            image: true 
-          }
-        },
-        _count: {
-          select: { 
-            likes: true, 
-            comments: true 
-          }
-        }
-      },
+      }
+    });
+    
+    const mealUser = await prisma.user.findUnique({
+      where: { id: meal.userId },
+      select: { id: true, username: true, name: true, image: true }
     });
 
-    return NextResponse.json({ ok: true, data: meal }, { status: 201 });
+    return NextResponse.json({ 
+      ok: true, 
+      data: {
+        ...createdMeal,
+        user: mealUser || { id: meal.userId, username: null, name: null, image: null },
+        _count: { likes: 0, comments: 0 },
+        dateCooked: createdMeal?.createdAt?.toISOString(),
+      }
+    }, { status: 201 });
   } catch (error: any) {
     console.error("Error creating meal:", error);
     console.error("Error stack:", error?.stack);
