@@ -74,7 +74,14 @@ export default function SavedMealsScreen({ navigation }: any) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>💾 Saved Meals</Text>
+        <View style={styles.headerSpacer} />
       </View>
 
       {loading ? (
@@ -115,14 +122,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     padding: 16,
     borderBottomWidth: 0.5,
     borderBottomColor: '#333',
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#fff',
+    flex: 1,
+  },
+  headerSpacer: {
+    width: 40,
   },
   list: {
     padding: 8,
