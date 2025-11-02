@@ -85,6 +85,8 @@ export async function GET(req: Request) {
               image: true 
             }
           },
+          // Note: _count requires the Like and Comment models to exist
+          // For now, return 0 if relations don't exist
           _count: {
             select: { 
               likes: true, 
