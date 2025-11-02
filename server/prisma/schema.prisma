@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // For migrate (direct DB):
+  url      = env("DIRECT_DATABASE_URL")
+}
+
+model User {
+  id         String    @id @default(uuid())
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  email      String?   @unique
+  username   String?   @unique
+  name       String?
+  image      String?
+  isPrivate  Boolean   @default(true)
+
+  // next-auth relations
+  accounts   Account[]
+  sessions   Session[]
+
+  // app relations
+  meals       Meal[]
+  comparisons Comparison[] @relation("by_user")
+  eloRatings  EloRating[]
+  ratings     Rating[]
+  pairwiseComparisons PairwiseComparison[] @relation("UserComparisons")
+  followers     Follow[] @relation("Follower")
+  following     Follow[] @relation("Following")
+  likes         Like[]
+  comments      Comment[]
+  lists         MealList[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// For email magic links (optional). Safe to include even if unused.
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ——— APP MODELS ———
+
+model Meal {
+  id           String        @id @default(uuid())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  userId       String
+  title        String
+  description  String?
+  tags         String[]
+  difficulty   Difficulty    @default(MEDIUM)
+  prepMinutes  Int?
+  cookMinutes  Int?
+  totalMinutes Int?
+  servings     Int?
+  isPublic     Boolean       @default(false)
+  sentiment    Sentiment?
+  costPerServingCents Int?
+  photos       String[]      // Array of photo URLs
+  globalScore  Float?        @default(1500) // Elo-style score
+
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredients  MealIngredient[]
+  eloRatings   EloRating[]
+  ratings      Rating[]
+  comparisonsA Comparison[]   @relation("mealA")
+  comparisonsB Comparison[]   @relation("mealB")
+  winnerComparisons Comparison[] @relation("winner")
+  pairwiseComparisonsA PairwiseComparison[] @relation("MealA")
+  pairwiseComparisonsB PairwiseComparison[] @relation("MealB")
+  likes        Like[]
+  comments     Comment[]
+  listItems    MealListItem[]
+  recipe       Recipe?
+
+  @@index([userId, createdAt])
+  @@index([isPublic, createdAt])
+  @@index([globalScore])
+}
+
+enum Sentiment { 
+  LOVED 
+  FINE 
+  NOT_FOR_ME 
+}
+
+enum Difficulty { 
+  EASY 
+  MEDIUM 
+  HARD 
+}
+
+model IngredientRef {
+  id      String   @id @default(uuid())
+  name    String   @unique
+  aliases String[]
+  mealIngredients MealIngredient[]
+}
+
+model MealIngredient {
+  id              String   @id @default(uuid())
+  mealId          String
+  ingredientRefId String?
+  rawName         String
+  quantity        Float?
+  unit            String?
+  isPantry        Boolean  @default(false)
+  unitPriceCents  Int?
+  priceDate       DateTime?
+
+  meal          Meal          @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  ingredientRef IngredientRef? @relation(fields: [ingredientRefId], references: [id])
+
+  @@index([mealId])
+}
+
+model Comparison {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  userId    String
+  mealAId   String
+  mealBId   String
+  winnerId  String
+
+  byUser User @relation("by_user", fields: [userId], references: [id], onDelete: Cascade)
+  mealA  Meal @relation("mealA", fields: [mealAId], references: [id], onDelete: Cascade)
+  mealB  Meal @relation("mealB", fields: [mealBId], references: [id], onDelete: Cascade)
+  winner Meal @relation("winner", fields: [winnerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model EloRating {
+  id        String   @id @default(uuid())
+  userId    String
+  mealId    String
+  rating    Float    @default(1500)
+  updatedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, mealId])
+  @@index([userId, rating])
+}
+
+model PairwiseComparison {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserComparisons", fields: [userId], references: [id], onDelete: Cascade)
+  mealAId   String
+  mealA     Meal     @relation("MealA", fields: [mealAId], references: [id], onDelete: Cascade)
+  mealBId   String
+  mealB     Meal     @relation("MealB", fields: [mealBId], references: [id], onDelete: Cascade)
+  winner    String   // "A" or "B"
+  createdAt DateTime @default(now())
+
+  @@unique([userId, mealAId, mealBId])
+  @@index([userId])
+}
+
+model Recipe {
+  id         String    @id @default(uuid())
+  mealId     String    @unique
+  meal       Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  yield      Int?
+  sourceUrl  String?
+  sourceName String?
+  steps      RecipeStep[]
+  ingredients Ingredient[]
+  utensils   String[]  // Array of utensil names
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model RecipeStep {
+  id          String   @id @default(uuid())
+  recipeId    String
+  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  stepNumber  Int
+  instruction String
+  timerSeconds Int?
+  photoPrompt Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([recipeId])
+}
+
+model Ingredient {
+  id              String   @id @default(uuid())
+  recipeId        String
+  recipe          Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  name            String
+  quantity        Float
+  unit            String
+  unitPrice       Float?
+  priceDate       DateTime?
+  store           String?
+  brand           String?
+  sourceLink      String?
+  substitutions   String[]  // Array of substitution options
+  isPantry        Boolean   @default(false)
+
+  createdAt       DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([recipeId])
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  mealId    String
+  meal      Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentiment String   // "loved", "fine", "didnt_love"
+  taste     Int?     // 1-10
+  texture   Int?     // 1-10
+  difficulty Int?    // 1-10
+  value     Int?     // 1-10
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([mealId, userId])
+  @@index([userId])
+  @@index([mealId])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  mealId    String
+  meal      Meal     @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([mealId, userId])
+  @@index([mealId])
+  @@index([userId])
+}
+
+model Comment {
+  id        String    @id @default(uuid())
+  mealId    String
+  meal      Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  parentId  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([mealId])
+  @@index([userId])
+}
+
+model MealList {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  isAutoGenerated Boolean   @default(false)
+  listType        String
+  items           MealListItem[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model MealListItem {
+  id        String    @id @default(uuid())
+  listId    String
+  list      MealList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  mealId    String
+  meal      Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  position  Int?
+  addedAt   DateTime  @default(now())
+
+  @@unique([listId, mealId])
+  @@index([listId])
+  @@index([mealId])
+}

@@ -1,0 +1,267 @@
+// NoshLog - Home Cooked Meal Rating App
+// Database schema for tracking meals, recipes, ingredients, and rankings
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  name          String?
+  avatar        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relations
+  meals         Meal[]
+  ratings       Rating[]
+  comparisons   PairwiseComparison[] @relation("UserComparisons")
+  followers     Follow[] @relation("Follower")
+  following     Follow[] @relation("Following")
+  likes         Like[]
+  comments      Comment[]
+  lists         MealList[]
+  
+  @@map("users")
+}
+
+model Meal {
+  id              String    @id @default(cuid())
+  title           String
+  dateCooked      DateTime  @default(now())
+  description     String?
+  
+  // Rating info
+  sentiment       String?   // "loved", "fine", "didnt_love"
+  globalScore     Float?    @default(1500) // Elo-style score
+  tasteScore      Float?
+  textureScore    Float?
+  difficultyScore Float?
+  valueScore      Float?
+  
+  // Metadata
+  tags            String    // JSON array of tags (cuisine, diet, occasion)
+  difficulty      String?   // "easy", "medium", "hard"
+  prepTime        Int?      // minutes
+  activeTime      Int?      // minutes
+  totalTime       Int?      // minutes
+  costPerServing  Float?
+  servings        Int?
+  
+  // Media
+  photos          String    // JSON array of photo URLs
+  
+  // Privacy
+  isPublic        Boolean   @default(false)
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe          Recipe?
+  ratings         Rating[]
+  comparisons     PairwiseComparison[] @relation("MealA")
+  comparisonsB    PairwiseComparison[] @relation("MealB")
+  likes           Like[]
+  comments        Comment[]
+  listItems       MealListItem[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([dateCooked])
+  @@index([globalScore])
+  @@map("meals")
+}
+
+model Recipe {
+  id              String    @id @default(cuid())
+  mealId          String    @unique
+  meal            Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  
+  yield           Int?      // number of servings
+  sourceUrl       String?   // if imported from web
+  sourceName      String?   // name of source
+  
+  steps           RecipeStep[]
+  ingredients     Ingredient[]
+  utensils        String    // JSON array
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("recipes")
+}
+
+model RecipeStep {
+  id              String    @id @default(cuid())
+  recipeId        String
+  recipe          Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  stepNumber      Int
+  instruction     String
+  timerSeconds    Int?      // optional timer for this step
+  photoPrompt     Boolean   @default(false) // should user take photo here?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([recipeId])
+  @@map("recipe_steps")
+}
+
+model Ingredient {
+  id              String    @id @default(cuid())
+  recipeId        String
+  recipe          Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  name            String
+  quantity        Float
+  unit            String    // "cup", "tbsp", "oz", "lb", etc.
+  
+  // Pricing & sourcing
+  unitPrice       Float?
+  priceDate       DateTime?
+  store           String?
+  brand           String?
+  sourceLink      String?   // retailer URL
+  substitutions   String    // JSON array of substitution options
+  isPantry        Boolean   @default(false) // is this a pantry staple?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([recipeId])
+  @@map("ingredients")
+}
+
+model Rating {
+  id              String    @id @default(cuid())
+  mealId          String
+  meal            Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sentiment       String    // "loved", "fine", "didnt_love"
+  taste           Int?      // 1-10
+  texture         Int?      // 1-10
+  difficulty      Int?      // 1-10
+  value           Int?      // 1-10
+  
+  notes           String?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([mealId, userId])
+  @@index([userId])
+  @@index([mealId])
+  @@map("ratings")
+}
+
+model PairwiseComparison {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation("UserComparisons", fields: [userId], references: [id], onDelete: Cascade)
+  
+  mealAId         String
+  mealA           Meal      @relation("MealA", fields: [mealAId], references: [id], onDelete: Cascade)
+  mealBId         String
+  mealB           Meal      @relation("MealB", fields: [mealBId], references: [id], onDelete: Cascade)
+  
+  winner          String    // "A" or "B"
+  
+  createdAt       DateTime  @default(now())
+  
+  @@unique([userId, mealAId, mealBId])
+  @@index([userId])
+  @@map("pairwise_comparisons")
+}
+
+model Follow {
+  id              String    @id @default(cuid())
+  followerId      String
+  follower        User      @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId     String
+  following       User      @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Like {
+  id              String    @id @default(cuid())
+  mealId          String
+  meal            Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  
+  @@unique([mealId, userId])
+  @@index([mealId])
+  @@index([userId])
+  @@map("likes")
+}
+
+model Comment {
+  id              String    @id @default(cuid())
+  mealId          String
+  meal            Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  content         String
+  parentId        String?   // for replies
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([mealId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model MealList {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String    // "Want to Cook", "Cooked", "Top 10", etc.
+  isAutoGenerated Boolean   @default(false) // true for auto Top-N lists
+  listType        String    // "want_to_cook", "cooked", "top_n", "custom"
+  
+  items           MealListItem[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@map("meal_lists")
+}
+
+model MealListItem {
+  id              String    @id @default(cuid())
+  listId          String
+  list            MealList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  mealId          String
+  meal            Meal      @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  
+  position        Int?      // for ordering in list
+  addedAt         DateTime  @default(now())
+  
+  @@unique([listId, mealId])
+  @@index([listId])
+  @@index([mealId])
+  @@map("meal_list_items")
+}
