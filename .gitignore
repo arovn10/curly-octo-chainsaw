@@ -1,4 +1,46 @@
+# Environment files with secrets
 .env
-.env.local
+.env.*
+!.env.example
 *.env
+*.env.local
+*.env.production
+*.env.development
+
+# Server environment files
+server/.env
+server/.env.*
+!server/.env.example
 server/.env.local
+
+# Build outputs
+.next
+node_modules
+dist
+build
+*.log
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+*.db
+*.db-shm
+*.db-wal
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+coverage
+.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
