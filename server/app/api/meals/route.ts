@@ -56,7 +56,7 @@ const MealCreate = z.object({
 
 export async function GET(req: Request) {
   try {
-    const { auth } = await import("@/../auth");
+    const { auth } = await import("../../../../auth");
     const session = await auth();
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId") || session?.user?.id;
@@ -87,7 +87,15 @@ export async function GET(req: Request) {
       }
     });
     
-    return NextResponse.json({ ok: true, data: meals });
+    // Format response - fields are already correct from Prisma
+    const formattedMeals = meals.map((meal: any) => ({
+      ...meal,
+      tags: Array.isArray(meal.tags) ? meal.tags : parseJsonField(meal.tags),
+      photos: Array.isArray(meal.photos) ? meal.photos : parseJsonField(meal.photos),
+      dateCooked: meal.createdAt?.toISOString() || meal.createdAt,
+    }));
+    
+    return NextResponse.json({ ok: true, data: formattedMeals });
   } catch (error) {
     console.error("Error fetching meals:", error);
     return NextResponse.json({ ok: false, error: "Failed to fetch meals" }, { status: 500 });

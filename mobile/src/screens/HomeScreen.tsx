@@ -6,13 +6,18 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
+  RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { mealsApi, Meal } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function HomeScreen({ navigation }: any) {
+  const { user } = useAuth();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId] = useState('demo-user-id'); // TODO: Get from auth context
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     loadMeals();
@@ -21,15 +26,24 @@ export default function HomeScreen({ navigation }: any) {
   const loadMeals = async () => {
     try {
       setLoading(true);
-      const response = await mealsApi.getAll(userId);
+      // Load public meals from all users (friend feed)
+      const response = await mealsApi.getAll(undefined, true);
       if (response.ok) {
-        setMeals(response.data);
+        setMeals(response.data || []);
+      } else {
+        console.error('Failed to load meals:', response);
       }
     } catch (error) {
       console.error('Error loading meals:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadMeals();
   };
 
   const renderMeal = ({ item }: { item: Meal }) => (
@@ -37,10 +51,35 @@ export default function HomeScreen({ navigation }: any) {
       style={styles.mealCard}
       onPress={() => navigation.navigate('MealDetail', { mealId: item.id })}
     >
+      <View style={styles.mealHeader}>
+        <View style={styles.userInfo}>
+          {item.user?.image && (
+            <Image source={{ uri: item.user.image }} style={styles.avatar} />
+          )}
+          <View>
+            <Text style={styles.userName}>
+              {item.user?.name || item.user?.username || 'Anonymous'}
+            </Text>
+            <Text style={styles.mealDate}>
+              {new Date(item.dateCooked || item.createdAt).toLocaleDateString()}
+            </Text>
+          </View>
+        </View>
+      </View>
+      
       <Text style={styles.mealTitle}>{item.title}</Text>
       {item.description && (
         <Text style={styles.mealDescription}>{item.description}</Text>
       )}
+      
+      {item.photos && item.photos.length > 0 && (
+        <Image 
+          source={{ uri: item.photos[0] }} 
+          style={styles.mealImage}
+          resizeMode="cover"
+        />
+      )}
+      
       <View style={styles.mealMeta}>
         {item.totalMinutes && (
           <Text style={styles.metaText}>⏱️ {item.totalMinutes}m</Text>
@@ -52,12 +91,23 @@ export default function HomeScreen({ navigation }: any) {
         )}
         {item.sentiment && (
           <Text style={styles.metaText}>
-            {item.sentiment === 'LOVED' ? '❤️' : item.sentiment === 'FINE' ? '👍' : '😐'}
+            {item.sentiment === 'LOVED' ? '❤️ Loved' : item.sentiment === 'FINE' ? '👍 Fine' : '😐 Not for me'}
           </Text>
         )}
       </View>
+      
+      {item.tags && item.tags.length > 0 && (
+        <View style={styles.tagsContainer}>
+          {item.tags.map((tag, idx) => (
+            <View key={idx} style={styles.tag}>
+              <Text style={styles.tagText}>{tag}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      
       {item.globalScore && (
-        <Text style={styles.scoreText}>Score: {Math.round(item.globalScore)}</Text>
+        <Text style={styles.scoreText}>⭐ Score: {Math.round(item.globalScore)}</Text>
       )}
     </TouchableOpacity>
   );
@@ -71,29 +121,36 @@ export default function HomeScreen({ navigation }: any) {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🍝 NoshLog</Text>
+        <Text style={styles.headerTitle}>🌍 Public Feed</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('AddMeal')}
         >
-          <Text style={styles.addButtonText}>+ Add Meal</Text>
+          <Text style={styles.addButtonText}>+ Add</Text>
         </TouchableOpacity>
       </View>
       <FlatList
         data={meals}
         renderItem={renderMeal}
         keyExtractor={(item) => item.id}
-        refreshing={loading}
-        onRefresh={loadMeals}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>No meals yet. Add your first meal!</Text>
+            <Text style={styles.emptyText}>No meals yet. Start adding meals to see them here!</Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.navigate('AddMeal')}
+            >
+              <Text style={styles.emptyButtonText}>Add Your First Meal</Text>
+            </TouchableOpacity>
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -119,9 +176,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#FF6B6B',
   },
   addButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF6B6B',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -129,6 +187,29 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  mealHeader: {
+    marginBottom: 12,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e0e0e0',
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  mealDate: {
+    fontSize: 12,
+    color: '#999',
   },
   mealCard: {
     backgroundColor: '#fff',
@@ -150,6 +231,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 12,
+  },
+  mealImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#f0f0f0',
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  tag: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  tagText: {
+    fontSize: 12,
+    color: '#666',
   },
   mealMeta: {
     flexDirection: 'row',
@@ -173,6 +277,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#999',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  emptyButton: {
+    backgroundColor: '#FF6B6B',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
 

@@ -1,7 +1,8 @@
 import axios from 'axios';
 
+// Use network IP for phone connections, localhost for web/emulator
 const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/api' // Change to your server URL in production
+  ? 'http://192.168.1.169:3000/api' // Network IP for Expo Go on phone
   : 'https://your-production-url.com/api';
 
 export const apiClient = axios.create({
