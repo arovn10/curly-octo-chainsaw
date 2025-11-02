@@ -52,45 +52,63 @@ export async function GET(req: Request) {
       where.isPublic = true;
     }
     
-    // Simplified query - avoid complex relations that might fail
-    const meals = await prisma.meal.findMany({
-      where,
-      take: 50,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        userId: true,
-        title: true,
-        description: true,
-        tags: true,
-        difficulty: true,
-        prepMinutes: true,
-        cookMinutes: true,
-        totalMinutes: true,
-        servings: true,
-        isPublic: true,
-        sentiment: true,
-        costPerServingCents: true,
-        photos: true,
-        globalScore: true,
-        createdAt: true,
-        updatedAt: true,
-        user: {
-          select: { 
-            id: true, 
-            username: true, 
-            name: true, 
-            image: true 
-          }
-        },
-        _count: {
-          select: { 
-            likes: true, 
-            comments: true 
+    // Try to query database
+    let meals;
+    try {
+      meals = await prisma.meal.findMany({
+        where,
+        take: 50,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          userId: true,
+          title: true,
+          description: true,
+          tags: true,
+          difficulty: true,
+          prepMinutes: true,
+          cookMinutes: true,
+          totalMinutes: true,
+          servings: true,
+          isPublic: true,
+          sentiment: true,
+          costPerServingCents: true,
+          photos: true,
+          globalScore: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: { 
+              id: true, 
+              username: true, 
+              name: true, 
+              image: true 
+            }
+          },
+          _count: {
+            select: { 
+              likes: true, 
+              comments: true 
+            }
           }
         }
+      });
+    } catch (dbError: any) {
+      console.error("Database error:", dbError);
+      console.error("Error code:", dbError?.code);
+      console.error("Error meta:", dbError?.meta);
+      
+      // If table doesn't exist or connection fails, return empty array
+      if (dbError?.code === 'P2021' || dbError?.code === 'P1001' || dbError?.message?.includes('does not exist')) {
+        console.warn("Database table may not exist yet. Run migrations first.");
+        return NextResponse.json({ 
+          ok: true, 
+          data: [],
+          warning: "Database not initialized. Please run migrations."
+        });
       }
-    });
+      throw dbError;
+    }
     
     // Format response safely
     const formattedMeals = meals.map((meal: any) => {
@@ -131,12 +149,14 @@ export async function GET(req: Request) {
     console.error("Error fetching meals:", error);
     console.error("Error message:", error?.message);
     console.error("Error code:", error?.code);
+    console.error("Full error:", JSON.stringify(error, null, 2));
     
     // Return empty array instead of error to prevent app crash
     return NextResponse.json({ 
       ok: true, 
       data: [],
-      warning: error?.message || "Failed to fetch meals"
+      warning: error?.message || "Failed to fetch meals",
+      errorCode: error?.code
     });
   }
 }
