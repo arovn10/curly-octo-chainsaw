@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { mealsApi, Meal } from '../api/client';
+import { savedApi, mealsApi, Meal } from '../api/client';
 
 export default function SavedMealsScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -22,16 +22,25 @@ export default function SavedMealsScreen({ navigation }: any) {
   }, []);
 
   const loadSavedMeals = async () => {
+    if (!user?.id) return;
+    
     try {
       setLoading(true);
-      // TODO: Call API to get saved meals from MealList
-      // For now, load user's own meals as placeholder
-      const response = await mealsApi.getAll(user?.id);
+      const response = await savedApi.getSaved(user.id);
       if (response.ok) {
         setSavedMeals(response.data || []);
       }
     } catch (error) {
       console.error('Error loading saved meals:', error);
+      // Fallback to user's own meals if API fails
+      try {
+        const mealsResponse = await mealsApi.getAll(user.id);
+        if (mealsResponse.ok) {
+          setSavedMeals(mealsResponse.data || []);
+        }
+      } catch (fallbackError) {
+        console.error('Fallback failed:', fallbackError);
+      }
     } finally {
       setLoading(false);
     }

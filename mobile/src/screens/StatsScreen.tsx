@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
-import { mealsApi } from '../api/client';
+import { statsApi } from '../api/client';
 
 export default function StatsScreen({ navigation }: any) {
   const { user } = useAuth();
@@ -24,48 +24,55 @@ export default function StatsScreen({ navigation }: any) {
     
     try {
       setLoading(true);
-      const response = await mealsApi.getAll(user.id);
+      const response = await statsApi.getStats(user.id);
       if (response.ok) {
-        const meals = response.data || [];
-        
-        // Calculate stats
-        const totalMeals = meals.length;
-        const totalTime = meals.reduce((sum: number, m: any) => sum + (m.totalMinutes || 0), 0);
-        const avgTime = totalMeals > 0 ? Math.round(totalTime / totalMeals) : 0;
-        const totalCost = meals.reduce((sum: number, m: any) => 
-          sum + (m.costPerServingCents || 0) * (m.servings || 1), 0
-        );
-        const avgCost = totalMeals > 0 ? (totalCost / totalMeals / 100).toFixed(2) : 0;
-        
-        const difficultyCounts = meals.reduce((acc: any, m: any) => {
-          acc[m.difficulty || 'MEDIUM'] = (acc[m.difficulty || 'MEDIUM'] || 0) + 1;
-          return acc;
-        }, {});
-        
-        const tagsCount: Record<string, number> = {};
-        meals.forEach((m: any) => {
-          (m.tags || []).forEach((tag: string) => {
-            tagsCount[tag] = (tagsCount[tag] || 0) + 1;
-          });
-        });
-        
-        const topTags = Object.entries(tagsCount)
-          .sort(([, a], [, b]) => (b as number) - (a as number))
-          .slice(0, 5)
-          .map(([tag]) => tag);
-
-        setStats({
-          totalMeals,
-          avgTime,
-          avgCost,
-          difficultyCounts,
-          topTags,
-          totalTime,
-          totalCost: (totalCost / 100).toFixed(2),
-        });
+        setStats(response.data);
       }
     } catch (error) {
       console.error('Error loading stats:', error);
+      // Fallback to calculating from meals if API fails
+      try {
+        const mealsResponse = await mealsApi.getAll(user.id);
+        if (mealsResponse.ok) {
+          const meals = mealsResponse.data || [];
+          const totalMeals = meals.length;
+          const totalTime = meals.reduce((sum: number, m: any) => sum + (m.totalMinutes || 0), 0);
+          const avgTime = totalMeals > 0 ? Math.round(totalTime / totalMeals) : 0;
+          const totalCost = meals.reduce((sum: number, m: any) => 
+            sum + (m.costPerServingCents || 0) * (m.servings || 1), 0
+          );
+          const avgCost = totalMeals > 0 ? (totalCost / totalMeals / 100).toFixed(2) : 0;
+          
+          const difficultyCounts = meals.reduce((acc: any, m: any) => {
+            acc[m.difficulty || 'MEDIUM'] = (acc[m.difficulty || 'MEDIUM'] || 0) + 1;
+            return acc;
+          }, {});
+          
+          const tagsCount: Record<string, number> = {};
+          meals.forEach((m: any) => {
+            (m.tags || []).forEach((tag: string) => {
+              tagsCount[tag] = (tagsCount[tag] || 0) + 1;
+            });
+          });
+          
+          const topTags = Object.entries(tagsCount)
+            .sort(([, a], [, b]) => (b as number) - (a as number))
+            .slice(0, 5)
+            .map(([tag]) => tag);
+
+          setStats({
+            totalMeals,
+            avgTime,
+            avgCost,
+            difficultyCounts,
+            topTags,
+            totalTime,
+            totalCost: (totalCost / 100).toFixed(2),
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Fallback stats calculation failed:', fallbackError);
+      }
     } finally {
       setLoading(false);
     }

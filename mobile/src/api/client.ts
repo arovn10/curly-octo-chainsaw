@@ -140,3 +140,44 @@ export const topApi = {
   },
 };
 
+export const statsApi = {
+  getStats: async (userId: string) => {
+    const response = await apiClient.get(`/stats?userId=${userId}`);
+    return response.data;
+  },
+};
+
+export const friendsApi = {
+  getFollowing: async (userId: string) => {
+    const response = await apiClient.get(`/friends?userId=${userId}&type=following`);
+    return response.data;
+  },
+  getFollowers: async (userId: string) => {
+    const response = await apiClient.get(`/friends?userId=${userId}&type=followers`);
+    return response.data;
+  },
+  follow: async (followerId: string, followingId: string) => {
+    const response = await apiClient.post('/friends', { followerId, followingId });
+    return response.data;
+  },
+  unfollow: async (followerId: string, followingId: string) => {
+    const response = await apiClient.delete(`/friends?followerId=${followerId}&followingId=${followingId}`);
+    return response.data;
+  },
+};
+
+export const savedApi = {
+  getSaved: async (userId: string) => {
+    const response = await apiClient.get(`/saved?userId=${userId}`);
+    return response.data;
+  },
+  saveMeal: async (userId: string, mealId: string) => {
+    const response = await apiClient.post('/saved', { userId, mealId });
+    return response.data;
+  },
+  unsaveMeal: async (userId: string, mealId: string) => {
+    const response = await apiClient.delete(`/saved?userId=${userId}&mealId=${mealId}`);
+    return response.data;
+  },
+};
+

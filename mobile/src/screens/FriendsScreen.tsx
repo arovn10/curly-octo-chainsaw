@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import { friendsApi } from '../api/client';
 
 interface Friend {
   id: string;
@@ -33,34 +34,17 @@ export default function FriendsScreen({ navigation }: any) {
   }, [activeTab]);
 
   const loadFriends = async () => {
+    if (!user?.id) return;
+    
     try {
       setLoading(true);
-      // TODO: Call API to get friends
-      // For now, use dummy data
-      const dummyFriends: Friend[] = [
-        {
-          id: '1',
-          name: 'Alex Cooks',
-          username: 'alexcooks',
-          isFollowing: true,
-          mealCount: 24,
-        },
-        {
-          id: '2',
-          name: 'Chef Sarah',
-          username: 'chefsarah',
-          isFollowing: true,
-          mealCount: 18,
-        },
-        {
-          id: '3',
-          name: 'Foodie Mike',
-          username: 'foodiemike',
-          isFollowing: false,
-          mealCount: 31,
-        },
-      ];
-      setFriends(dummyFriends);
+      const response = activeTab === 'following' 
+        ? await friendsApi.getFollowing(user.id)
+        : await friendsApi.getFollowers(user.id);
+      
+      if (response.ok) {
+        setFriends(response.data || []);
+      }
     } catch (error) {
       console.error('Error loading friends:', error);
     } finally {
@@ -69,12 +53,26 @@ export default function FriendsScreen({ navigation }: any) {
   };
 
   const handleFollow = async (friendId: string) => {
-    // TODO: Call API to follow/unfollow
-    setFriends((prev) =>
-      prev.map((f) =>
-        f.id === friendId ? { ...f, isFollowing: !f.isFollowing } : f
-      )
-    );
+    if (!user?.id) return;
+    
+    const friend = friends.find((f) => f.id === friendId);
+    if (!friend) return;
+
+    try {
+      if (friend.isFollowing) {
+        await friendsApi.unfollow(user.id, friendId);
+      } else {
+        await friendsApi.follow(user.id, friendId);
+      }
+      // Update local state
+      setFriends((prev) =>
+        prev.map((f) =>
+          f.id === friendId ? { ...f, isFollowing: !f.isFollowing } : f
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+    }
   };
 
   const renderFriend = ({ item }: { item: Friend }) => (
