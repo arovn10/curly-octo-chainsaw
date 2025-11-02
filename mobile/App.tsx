@@ -12,6 +12,10 @@ import MyMealsScreen from './src/screens/MyMealsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import RecommendedScreen from './src/screens/RecommendedScreen';
 import AddMealScreen from './src/screens/AddMealScreen';
+import StatsScreen from './src/screens/StatsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import FriendsScreen from './src/screens/FriendsScreen';
+import SavedMealsScreen from './src/screens/SavedMealsScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -58,8 +62,13 @@ function AppNavigator() {
             <Tab.Navigator
               screenOptions={{
                 tabBarActiveTintColor: '#FF6B6B',
-                tabBarInactiveTintColor: '#999',
+                tabBarInactiveTintColor: '#666',
                 headerShown: false,
+                tabBarStyle: {
+                  backgroundColor: '#000',
+                  borderTopColor: '#333',
+                  borderTopWidth: 0.5,
+                },
               }}
             >
               <Tab.Screen
@@ -104,6 +113,38 @@ function AppNavigator() {
             presentation: 'modal',
             headerShown: true,
             title: 'Add Meal',
+          }}
+        />
+        <Stack.Screen
+          name="Stats"
+          component={StatsScreen}
+          options={{ 
+            presentation: 'card',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ 
+            presentation: 'card',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="Friends"
+          component={FriendsScreen}
+          options={{ 
+            presentation: 'card',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="SavedMeals"
+          component={SavedMealsScreen}
+          options={{ 
+            presentation: 'card',
+            headerShown: false,
           }}
         />
       </Stack.Navigator>

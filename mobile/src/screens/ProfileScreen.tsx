@@ -24,19 +24,31 @@ export default function ProfileScreen({ navigation }: any) {
       </View>
 
       <View style={styles.section}>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('Stats')}
+        >
           <Text style={styles.menuText}>📊 My Stats</Text>
           <Text style={styles.menuArrow}>→</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('Settings')}
+        >
           <Text style={styles.menuText}>⚙️ Settings</Text>
           <Text style={styles.menuArrow}>→</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('Friends')}
+        >
           <Text style={styles.menuText}>👥 Friends</Text>
           <Text style={styles.menuArrow}>→</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => navigation.navigate('SavedMeals')}
+        >
           <Text style={styles.menuText}>💾 Saved Meals</Text>
           <Text style={styles.menuArrow}>→</Text>
         </TouchableOpacity>
@@ -53,17 +65,17 @@ export default function ProfileScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#000',
   },
   scrollView: {
     flex: 1,
   },
   header: {
-    backgroundColor: '#fff',
+    backgroundColor: '#000',
     padding: 24,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#333',
   },
   avatarContainer: {
     width: 80,
@@ -82,15 +94,15 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
     marginBottom: 4,
   },
   email: {
     fontSize: 14,
-    color: '#666',
+    color: '#999',
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: '#1a1a1a',
     marginTop: 12,
     paddingVertical: 8,
   },
@@ -99,12 +111,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#333',
   },
   menuText: {
     fontSize: 16,
-    color: '#333',
+    color: '#fff',
   },
   menuArrow: {
     fontSize: 16,
