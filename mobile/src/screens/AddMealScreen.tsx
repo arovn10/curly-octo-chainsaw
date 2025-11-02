@@ -41,7 +41,6 @@ export default function AddMealScreen({ navigation }: any) {
   const [photos, setPhotos] = useState<PhotoWithDescription[]>([]);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [userId] = useState(user?.id || 'demo-user-id');
   const [trackedMinutes, setTrackedMinutes] = useState<number | null>(null);
   const [showTimer, setShowTimer] = useState(false);
   const [recipeSteps, setRecipeSteps] = useState<RecipeStep[]>([{ instruction: '' }]);
@@ -49,7 +48,7 @@ export default function AddMealScreen({ navigation }: any) {
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         quality: 0.8,
       });
@@ -145,11 +144,17 @@ export default function AddMealScreen({ navigation }: any) {
 
     setLoading(true);
     try {
+      // Ensure we have a valid user ID
+      if (!user?.id) {
+        Alert.alert('Error', 'Please login first');
+        return;
+      }
+      
       // Get uploaded URLs or fallback to local URIs
       const photoUrls = photos.map(p => p.uploadedUrl || p.uri);
       
       const mealData = {
-        userId,
+        userId: user.id,
         title: title.trim(),
         description: description.trim() || undefined,
         tags: [], // TODO: Add tag input
@@ -345,9 +350,10 @@ export default function AddMealScreen({ navigation }: any) {
           style={[styles.photoButton, uploading && styles.photoButtonDisabled]}
           onPress={pickImage}
           disabled={uploading}
+          activeOpacity={0.7}
         >
           {uploading ? (
-            <ActivityIndicator color="#007AFF" />
+            <ActivityIndicator color="#007AFF" size="small" />
           ) : (
             <Text style={styles.photoButtonText}>
               📷 {photos.length > 0 ? `Add More (${photos.length})` : 'Add Photos'}
@@ -503,10 +509,13 @@ const styles = StyleSheet.create({
   photoButton: {
     backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#007AFF',
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
+    marginBottom: 16,
+    minHeight: 50,
+    justifyContent: 'center',
   },
   photoButtonText: {
     fontSize: 16,

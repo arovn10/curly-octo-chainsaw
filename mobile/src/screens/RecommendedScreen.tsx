@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { mealsApi, Meal } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -87,14 +88,16 @@ export default function RecommendedScreen({ navigation }: any) {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerSection}>
         <Text style={styles.headerTitle}>⭐ Recommended</Text>
         <Text style={styles.headerSubtitle}>Top-rated dishes from the community</Text>
@@ -109,7 +112,7 @@ export default function RecommendedScreen({ navigation }: any) {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

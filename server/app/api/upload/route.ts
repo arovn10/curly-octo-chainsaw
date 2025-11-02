@@ -26,10 +26,15 @@ export async function POST(req: NextRequest) {
         key,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating upload URL:", error);
+    console.error("Error details:", error?.message, error?.stack);
     return NextResponse.json(
-      { ok: false, error: "Failed to generate upload URL" },
+      { 
+        ok: false, 
+        error: error?.message || "Failed to generate upload URL",
+        details: process.env.NODE_ENV === "development" ? error?.stack : undefined
+      },
       { status: 500 }
     );
   }
